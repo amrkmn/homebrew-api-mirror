@@ -1,35 +1,22 @@
 # Homebrew API Mirror
 
-Mirrors the Homebrew API to any S3-compatible storage (Cloudflare R2, AWS S3, MinIO) via GitHub Actions.
+Mirrors the Homebrew API to S3-compatible storage (Cloudflare R2, AWS S3, MinIO) via GitHub Actions.
 
 Downloads the full API from the GitHub Actions artifact published by `Homebrew/formulae.brew.sh` — no need to scrape `formulae.brew.sh` one file at a time. Uses **Bun's native S3 client** with SHA-256 delta syncing so only changed files are uploaded.
 
 ## Setup
 
-### 1. Create a bucket
+Create a bucket and set these repository secrets:
 
-```bash
-# Cloudflare R2
-npx wrangler r2 bucket create homebrew-api
-
-# AWS S3
-aws s3 mb s3://homebrew-api
-
-# MinIO
-mc mb local/homebrew-api
-```
-
-### 2. Add GitHub secrets
-
-| Secret | Cloudflare R2 | AWS S3 | MinIO |
-|--------|--------------|--------|-------|
-| `GH_PAT` | PAT with `public_repo` scope | Same | Same |
-| `S3_ENDPOINT` | `https://<account_id>.r2.cloudflarestorage.com` | *(omit)* | `http://localhost:9000` |
-| `S3_ACCESS_KEY_ID` | R2 access key ID | AWS access key ID | MinIO access key |
-| `S3_SECRET_ACCESS_KEY` | R2 secret access key | AWS secret access key | MinIO secret key |
-| `S3_BUCKET` | `homebrew-api` | `homebrew-api` | `homebrew-api` |
-| `S3_REGION` | `auto` | `us-east-1` | *(omit)* |
-| `S3_FORCE_PATH_STYLE` | `false` | `false` | `true` |
+| Secret | Description |
+|--------|-------------|
+| `GH_PAT` | GitHub PAT with `public_repo` scope |
+| `S3_ENDPOINT` | S3 API endpoint (omit for AWS S3) |
+| `S3_ACCESS_KEY_ID` | Access key ID |
+| `S3_SECRET_ACCESS_KEY` | Secret access key |
+| `S3_BUCKET` | Bucket name |
+| `S3_REGION` | Region (e.g. `auto`, `us-east-1`) |
+| `S3_FORCE_PATH_STYLE` | `true` for MinIO, `false` for R2/S3 |
 
 ```bash
 gh secret set GH_PAT
@@ -41,19 +28,11 @@ gh secret set S3_REGION
 gh secret set S3_FORCE_PATH_STYLE
 ```
 
-### 3. Enable public access
-
-- **R2:** Dashboard → bucket → Settings → enable R2.dev subdomain or custom domain
-- **S3:** Configure bucket policy for public read, or use CloudFront
-- **MinIO:** `mc anonymous set download local/homebrew-api`
-
-## Usage
+Enable public read access on your bucket, then:
 
 ```bash
 export HOMEBREW_API_DOMAIN=https://<your-bucket-url>/api
 ```
-
-The bucket mirrors the upstream layout: `api/formula.json`, `api/cask.json`, `api/formula/*.json`, `api/cask/*.json`, `api/analytics/`, etc.
 
 ## How it works
 
