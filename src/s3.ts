@@ -3,7 +3,7 @@ import { S3Client } from "bun";
 const HASH_STATE_KEY = "__hash_state__.json";
 const RETRIES = 5;
 const BASE_DELAY_MS = 2000;
-const CONCURRENCY = 32;
+const CONCURRENCY = 64;
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const retryDelay = (attempt: number) =>
