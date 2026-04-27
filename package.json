@@ -1,0 +1,16 @@
+{
+  "name": "homebrew-api-mirror",
+  "version": "1.0.0",
+  "private": true,
+  "module": "src/sync.ts",
+  "type": "module",
+  "scripts": {
+    "sync": "bun run src/sync.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
