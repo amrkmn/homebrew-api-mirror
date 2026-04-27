@@ -50,7 +50,11 @@ export class Progress {
         this.loggedPcts = new Set();
 
         if (!isInteractiveTerminal()) {
-            console.log(`  ${this.label}: 0%`);
+            if (this.mode === "bytes") {
+                console.log(`  ${this.label} 0.0/${(this.total / 1024 / 1024).toFixed(1)}MiB(0%)`);
+            } else {
+                console.log(`  ${this.label} 0/${this.total}(0%)`);
+            }
         }
     }
 
@@ -79,34 +83,46 @@ export class Progress {
                 const milestone = Math.floor(pct / 10) * 10;
                 if (milestone > 0 && !this.loggedPcts.has(milestone)) {
                     this.loggedPcts.add(milestone);
-                    console.log(
-                        `  ${this.label}: ${milestone}%${this.mode === "bytes" ? ` (${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)} MiB)` : ` (${cappedCurrent}/${this.total})`}`,
-                    );
+                    if (this.mode === "bytes") {
+                        console.log(`  ${this.label} ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(${milestone}%)`);
+                    } else {
+                        console.log(`  ${this.label} ${cappedCurrent}/${this.total}(${milestone}%)`);
+                    }
                 }
                 return;
             }
         }
 
-        const pct =
-            this.total > 0
-                ? ((cappedCurrent / this.total) * 100).toFixed(0)
-                : "0";
-        const line =
-            this.mode === "bytes"
-                ? (() => {
-                      const secs = (now - this.startTime) / 1000;
-                      const transferred = Math.max(
-                          0,
-                          cappedCurrent - this.startBytes,
-                      );
-                      const speed =
-                          secs > 0
-                              ? (transferred / 1024 / 1024 / secs).toFixed(1)
-                              : "0.0";
-                      return `${this.label} received ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(${pct}%) ${speed}MiB/s`;
-                  })()
-                : `${this.label} ${cappedCurrent}/${this.total}(${pct}%)`;
-
-        render(line, done);
+        if (isInteractiveTerminal()) {
+            const pct =
+                this.total > 0
+                    ? ((cappedCurrent / this.total) * 100).toFixed(0)
+                    : "0";
+            const line =
+                this.mode === "bytes"
+                    ? (() => {
+                          const secs = (now - this.startTime) / 1000;
+                          const transferred = Math.max(
+                              0,
+                              cappedCurrent - this.startBytes,
+                          );
+                          const speed =
+                              secs > 0
+                                  ? (transferred / 1024 / 1024 / secs).toFixed(1)
+                                  : "0.0";
+                          return `${this.label} received ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(${pct}%) ${speed}MiB/s`;
+                      })()
+                    : `${this.label} ${cappedCurrent}/${this.total}(${pct}%)`;
+            render(line, done);
+        } else {
+            if (this.mode === "bytes") {
+                const secs = (now - this.startTime) / 1000;
+                const transferred = Math.max(0, cappedCurrent - this.startBytes);
+                const speed = secs > 0 ? (transferred / 1024 / 1024 / secs).toFixed(1) : "0.0";
+                console.log(`  ${this.label} ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(100%) ${speed}MiB/s`);
+            } else {
+                console.log(`  ${this.label} ${cappedCurrent}/${this.total}(100%)`);
+            }
+        }
     }
 }
