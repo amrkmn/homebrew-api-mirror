@@ -44,20 +44,27 @@ export function createS3(): S3Client {
 export async function loadOldHashes(
     s3: S3Client,
 ): Promise<Map<string, string>> {
+    const file = s3.file(HASH_STATE_KEY);
+    const exists = await file.exists();
+    if (!exists) {
+        console.log("  no previous hash state found");
+        return new Map();
+    }
     try {
         return new Map(
-            Object.entries(JSON.parse(await s3.file(HASH_STATE_KEY).text())),
+            Object.entries(JSON.parse(await file.text())),
         );
     } catch (e: any) {
         const msg = (e?.message ?? String(e)).toLowerCase();
-        console.log(`  loadOldHashes error: ${e?.constructor?.name}: ${e?.message ?? e}`);
+        const code = (e?.code ?? "").toLowerCase();
+        console.log(`  loadOldHashes error: ${e?.constructor?.name}: ${e?.message ?? e} (code=${e?.code})`);
         if (
+            code.includes("nosuchkey") ||
             msg.includes("nosuchkey") ||
             msg.includes("404") ||
             msg.includes("not found") ||
             msg.includes("does not exist") ||
-            msg.includes("no such") ||
-            msg.includes("ENOENT")
+            msg.includes("no such")
         ) {
             return new Map();
         }
