@@ -24,7 +24,7 @@ import {
     HASH_STATE_KEY,
     loadOldHashes,
     saveHashes,
-    uploadInParallel
+    uploadInParallel,
 } from "./s3";
 
 const ARTIFACT_API =

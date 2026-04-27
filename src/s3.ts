@@ -51,24 +51,9 @@ export async function loadOldHashes(
         return new Map();
     }
     try {
-        return new Map(
-            Object.entries(JSON.parse(await file.text())),
-        );
+        return new Map(Object.entries(JSON.parse(await file.text())));
     } catch (e: any) {
-        const msg = (e?.message ?? String(e)).toLowerCase();
-        const code = (e?.code ?? "").toLowerCase();
-        console.log(`  loadOldHashes error: ${e?.constructor?.name}: ${e?.message ?? e} (code=${e?.code})`);
-        if (
-            code.includes("nosuchkey") ||
-            msg.includes("nosuchkey") ||
-            msg.includes("404") ||
-            msg.includes("not found") ||
-            msg.includes("does not exist") ||
-            msg.includes("no such")
-        ) {
-            return new Map();
-        }
-        throw e;
+        return new Map();
     }
 }
 
@@ -77,7 +62,9 @@ export async function saveHashes(s3: S3Client, hashes: Map<string, string>) {
     await s3.write(HASH_STATE_KEY, data, {
         type: "application/json",
     });
-    console.log(`  saved ${hashes.size} hashes to ${HASH_STATE_KEY} (${(data.length / 1024).toFixed(1)} KiB)`);
+    console.log(
+        `  saved ${hashes.size} hashes to ${HASH_STATE_KEY} (${(data.length / 1024).toFixed(1)} KiB)`,
+    );
 }
 
 async function uploadFile(
