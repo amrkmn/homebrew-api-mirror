@@ -1,8 +1,8 @@
-function isInteractiveTerminal(): boolean {
+const IS_TTY = (() => {
     if (!process.stdout.isTTY) return false;
     if (process.env.TERM === "dumb") return false;
     if (process.env.CI === "true" || process.env.CI === "1") return false;
-    const ciEnvVars = [
+    return ![
         "GITHUB_ACTIONS",
         "GITLAB_CI",
         "CIRCLECI",
@@ -13,20 +13,11 @@ function isInteractiveTerminal(): boolean {
         "RENDER",
         "CF_PAGES",
         "VERCEL",
-    ];
-    for (const envVar of ciEnvVars) {
-        if (process.env[envVar]) return false;
-    }
-    return true;
-}
+    ].some((k) => process.env[k]);
+})();
 
-function render(line: string, done: boolean) {
-    if (isInteractiveTerminal()) {
-        process.stdout.write(`\r\x1b[2K  ${line}`);
-        if (done) process.stdout.write("\n");
-    } else if (done) {
-        console.log(`  ${line}`);
-    }
+function toMiB(bytes: number): string {
+    return (bytes / 1024 / 1024).toFixed(1);
 }
 
 export class Progress {
@@ -34,7 +25,7 @@ export class Progress {
     private startTime = 0;
     private lastRender = 0;
     private startBytes = 0;
-    private loggedPcts = new Set<number>();
+    private milestones = new Set<number>();
 
     constructor(
         private label: string,
@@ -47,82 +38,50 @@ export class Progress {
         this.startBytes = startBytes;
         this.prev = startBytes;
         this.lastRender = 0;
-        this.loggedPcts = new Set();
+        this.milestones = new Set();
+        if (!IS_TTY) console.log(`  ${this.fmt(startBytes, 0)}`);
+    }
 
-        if (!isInteractiveTerminal()) {
-            if (this.mode === "bytes") {
-                console.log(`  ${this.label} 0.0/${(this.total / 1024 / 1024).toFixed(1)}MiB(0%)`);
-            } else {
-                console.log(`  ${this.label} 0/${this.total}(0%)`);
+    update(raw: number) {
+        const cur = this.total > 0 ? Math.min(raw, this.total) : raw;
+        const pct = this.total > 0 ? Math.floor((cur / this.total) * 100) : 0;
+        const done = this.total > 0 && raw >= this.total;
+        const now = Date.now();
+
+        if (IS_TTY) {
+            if (
+                !done &&
+                raw - this.prev < Math.max(1, this.total * 0.01) &&
+                now - this.lastRender < 1000
+            )
+                return;
+            this.prev = raw;
+            this.lastRender = now;
+            process.stdout.write(
+                `\r\x1b[2K  ${this.fmt(cur, pct, this.mode === "bytes")}`,
+            );
+            if (done) process.stdout.write("\n");
+        } else if (done) {
+            console.log(`  ${this.fmt(cur, 100, this.mode === "bytes")}`);
+        } else {
+            const m = Math.floor(pct / 10) * 10;
+            if (m > 0 && !this.milestones.has(m)) {
+                this.milestones.add(m);
+                console.log(`  ${this.fmt(cur, m)}`);
             }
         }
     }
 
-    update(current: number) {
-        const now = Date.now();
-        const cappedCurrent =
-            this.total > 0 ? Math.min(current, this.total) : current;
-        const done = this.total > 0 && current >= this.total;
-
-        if (isInteractiveTerminal()) {
-            if (
-                !done &&
-                current - this.prev < Math.max(1, this.total * 0.01) &&
-                now - this.lastRender < 1000
-            )
-                return;
-
-            this.prev = current;
-            this.lastRender = now;
-        } else {
-            if (!done) {
-                const pct =
-                    this.total > 0
-                        ? Math.floor((cappedCurrent / this.total) * 100)
-                        : 0;
-                const milestone = Math.floor(pct / 10) * 10;
-                if (milestone > 0 && !this.loggedPcts.has(milestone)) {
-                    this.loggedPcts.add(milestone);
-                    if (this.mode === "bytes") {
-                        console.log(`  ${this.label} ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(${milestone}%)`);
-                    } else {
-                        console.log(`  ${this.label} ${cappedCurrent}/${this.total}(${milestone}%)`);
-                    }
-                }
-                return;
-            }
-        }
-
-        if (isInteractiveTerminal()) {
-            const pct =
-                this.total > 0
-                    ? ((cappedCurrent / this.total) * 100).toFixed(0)
-                    : "0";
-            const line =
-                this.mode === "bytes"
-                    ? (() => {
-                          const secs = (now - this.startTime) / 1000;
-                          const transferred = Math.max(
-                              0,
-                              cappedCurrent - this.startBytes,
-                          );
-                          const speed =
-                              secs > 0
-                                  ? (transferred / 1024 / 1024 / secs).toFixed(1)
-                                  : "0.0";
-                          return `${this.label} received ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(${pct}%) ${speed}MiB/s`;
-                      })()
-                    : `${this.label} ${cappedCurrent}/${this.total}(${pct}%)`;
-            render(line, done);
-        } else {
-            if (this.mode === "bytes") {
-                const secs = (now - this.startTime) / 1000;
-                const transferred = Math.max(0, cappedCurrent - this.startBytes);
-                const speed = secs > 0 ? (transferred / 1024 / 1024 / secs).toFixed(1) : "0.0";
-                console.log(`  ${this.label} ${(cappedCurrent / 1024 / 1024).toFixed(1)}/${(this.total / 1024 / 1024).toFixed(1)}MiB(100%) ${speed}MiB/s`);
-            } else {
-                console.log(`  ${this.label} ${cappedCurrent}/${this.total}(100%)`);
-            }
-        }
+    private fmt(current: number, pct: number, showSpeed = false): string {
+        if (this.mode === "count")
+            return `${this.label} ${current}/${this.total}(${pct}%)`;
+        const base = `${this.label} ${toMiB(current)}/${toMiB(this.total)}MiB(${pct}%)`;
+        if (!showSpeed) return base;
+        const seconds = (Date.now() - this.startTime) / 1000;
+        const speed =
+            seconds > 0
+                ? toMiB(Math.max(0, current - this.startBytes) / seconds)
+                : "0.0";
+        return `${base} ${speed}MiB/s`;
     }
 }
