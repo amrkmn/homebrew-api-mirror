@@ -1,6 +1,6 @@
 # Homebrew API Mirror
 
-Mirrors the Homebrew API to S3-compatible storage (Cloudflare R2, AWS S3, MinIO) via GitHub Actions.
+Mirrors the Homebrew API to S3-compatible storage via GitHub Actions.
 
 Downloads the full API from the GitHub Actions artifact published by `Homebrew/formulae.brew.sh` — no need to scrape `formulae.brew.sh` one file at a time. Uses **Bun's native S3 client** with SHA-256 delta syncing so only changed files are uploaded.
 
@@ -8,15 +8,15 @@ Downloads the full API from the GitHub Actions artifact published by `Homebrew/f
 
 Create a bucket and set these repository secrets:
 
-| Secret | Description |
-|--------|-------------|
-| `GH_PAT` | GitHub PAT with `public_repo` scope |
-| `S3_ENDPOINT` | S3 API endpoint (omit for AWS S3) |
-| `S3_ACCESS_KEY_ID` | Access key ID |
-| `S3_SECRET_ACCESS_KEY` | Secret access key |
-| `S3_BUCKET` | Bucket name |
-| `S3_REGION` | Region (e.g. `auto`, `us-east-1`) |
-| `S3_FORCE_PATH_STYLE` | `true` for MinIO, `false` for R2/S3 |
+| Secret                 | Description                         | Default       |
+| ---------------------- | ----------------------------------- | ------------- |
+| `GH_PAT`               | GitHub PAT with `public_repo` scope | —             |
+| `S3_ENDPOINT`          | S3 API endpoint                     | —             |
+| `S3_ACCESS_KEY_ID`     | Access key ID                       | —             |
+| `S3_SECRET_ACCESS_KEY` | Secret access key                   | —             |
+| `S3_BUCKET`            | Bucket name                         | —             |
+| `S3_REGION`            | Region                              | `auto`        |
+| `S3_FORCE_PATH_STYLE`  | Use path-style URLs                 | `false`       |
 
 ```bash
 gh secret set GH_PAT
