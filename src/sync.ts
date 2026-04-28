@@ -241,12 +241,25 @@ async function extractPages(outputDir: string): Promise<{
     } else {
         console.log(`  downloading artifact #${artifactId} (${sizeMB} MB)...`);
         const tmpZip = cachedZip + ".tmp";
-        await downloadToFile(
-            latest.archiveDownloadUrl,
-            tmpZip,
-            latest.sizeInBytes,
-            ghHeaders,
-        );
+
+        const nightlyUrl = `https://nightly.link/Homebrew/formulae.brew.sh/actions/artifacts/${artifactId}.zip`;
+        try {
+            await downloadToFile(nightlyUrl, tmpZip, latest.sizeInBytes);
+            console.log("  downloaded via nightly.link");
+        } catch (nightlyErr: any) {
+            console.log(
+                `  nightly.link failed (${nightlyErr?.message ?? "unknown error"}), falling back to GitHub API...`,
+            );
+            if (existsSync(tmpZip)) unlinkSync(tmpZip);
+            await downloadToFile(
+                latest.archiveDownloadUrl,
+                tmpZip,
+                latest.sizeInBytes,
+                ghHeaders,
+            );
+            console.log("  downloaded via GitHub API");
+        }
+
         const actual = Bun.file(tmpZip).size;
         if (actual !== latest.sizeInBytes) {
             unlinkSync(tmpZip);
