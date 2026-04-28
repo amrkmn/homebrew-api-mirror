@@ -291,7 +291,7 @@ async function uploadToR2(
 ): Promise<void> {
   for (let attempt = 1; attempt <= RETRIES; attempt++) {
     try {
-      console.log(`  uploading ${bucket}/${key} to R2`)
+      console.log(`  uploading ${bucket}/${key}`)
       await $`wrangler r2 object put ${bucket}/${key} --file ${localPath} --remote`.quiet();
       return;
     } catch (e: any) {
