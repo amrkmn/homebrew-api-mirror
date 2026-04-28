@@ -284,6 +284,26 @@ async function extractPages(outputDir: string): Promise<{
   }
 }
 
+async function uploadToR2(
+  bucket: string,
+  key: string,
+  localPath: string,
+): Promise<void> {
+  for (let attempt = 1; attempt <= RETRIES; attempt++) {
+    try {
+      await $`wrangler r2 object put ${bucket}/${key} --file ${localPath} --remote`.quiet();
+      return;
+    } catch (e: any) {
+      if (attempt >= RETRIES) throw e;
+      const delay = retryDelay(attempt);
+      console.log(
+        `  R2 retry ${attempt}/${RETRIES} for ${key} (wait ${Math.round(delay)}ms)`,
+      );
+      await sleep(delay);
+    }
+  }
+}
+
 async function main() {
   console.log("Starting formulae.brew.sh mirror sync...");
 
@@ -295,7 +315,7 @@ async function main() {
   if (largeFiles.size > 0) {
     console.log(`[2/3] Uploading ${largeFiles.size} large files to R2...`);
     for (const [key, localPath] of largeFiles) {
-      await $`wrangler r2 object put ${R2_BUCKET}/${key} --file ${localPath} --remote`;
+      await uploadToR2(R2_BUCKET, key, localPath);
     }
     console.log("  R2 upload complete");
     rmSync(join(CACHE_DIR, "r2-staging"), { recursive: true, force: true });
