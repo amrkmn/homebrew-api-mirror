@@ -276,7 +276,7 @@ async function main() {
 
   const { filePaths, artifactId } = await extractPages(OUTPUT_DIR);
 
-  writeFileSync(".formulae.artifact", String(artifactId));
+  writeFileSync(".latest.artifact", String(artifactId));
 
   setOutput("artifact_id", String(artifactId));
   setOutput("file_count", String(filePaths.size));
