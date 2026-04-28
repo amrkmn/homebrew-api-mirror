@@ -41,13 +41,9 @@ const isRetriableStatus = (s: number) => s === 429 || s >= 500;
 const retryDelay = (attempt: number) =>
     BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 1000;
 
-function setOutput(name: string, value: string) {
-    const ghEnv = process.env.GITHUB_OUTPUT;
-    if (ghEnv) {
-        appendFileSync(ghEnv, `${name}=${value}\n`);
-    }
-    console.log(`  ::set-output name=${name}::${value}`);
-}
+const setOutput = (key: string, value: string) =>
+    process.env.GITHUB_OUTPUT &&
+    appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
 
 async function fetchJson(url: string, headers: HeadersMap): Promise<any> {
     for (let attempt = 1; attempt <= RETRIES; attempt++) {
@@ -219,7 +215,10 @@ async function extractPages(outputDir: string): Promise<{
     artifactId: number;
 }> {
     const token = process.env.GITHUB_TOKEN;
-    if (!token) throw new Error("GITHUB_TOKEN is required (set in .env for local dev, auto-injected in GitHub Actions)");
+    if (!token)
+        throw new Error(
+            "GITHUB_TOKEN is required (set in .env for local dev, auto-injected in GitHub Actions)",
+        );
 
     const ghHeaders: HeadersMap = {
         Accept: "application/vnd.github+json",
@@ -319,7 +318,6 @@ async function main() {
     writeFileSync(".latest.artifact", String(artifactId));
 
     setOutput("artifact_id", String(artifactId));
-    setOutput("file_count", String(filePaths.size));
 
     console.log(
         `Done! ${filePaths.size} files extracted (artifact #${artifactId}).`,
