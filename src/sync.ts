@@ -177,6 +177,39 @@ function cleanStaleCache(artifactId: number) {
   }
 }
 
+interface LatestArtifact {
+  id: number;
+  archiveDownloadUrl: string;
+  sizeInBytes: number;
+}
+
+async function fetchLatestArtifact(): Promise<LatestArtifact> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) throw new Error("GITHUB_TOKEN is required");
+
+  const ghHeaders: HeadersMap = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    Authorization: `Bearer ${token}`,
+    "User-Agent": "formulae-mirror",
+  };
+
+  console.log("Fetching latest artifact from GitHub...");
+  const data = await fetchJson(ARTIFACT_API, ghHeaders);
+
+  const latest = data.artifacts.find(
+    (a: any) => a.workflow_run?.head_branch === "main" && !a.expired,
+  );
+  if (!latest)
+    throw new Error("No latest github-pages artifact found on main branch");
+
+  return {
+    id: latest.id,
+    archiveDownloadUrl: latest.archive_download_url,
+    sizeInBytes: latest.size_in_bytes,
+  };
+}
+
 async function extractPages(outputDir: string): Promise<{
   filePaths: Set<string>;
   artifactId: number;
@@ -191,17 +224,10 @@ async function extractPages(outputDir: string): Promise<{
     "User-Agent": "formulae-mirror",
   };
 
-  console.log("[1/2] Fetching artifact list from GitHub...");
-  const data = await fetchJson(ARTIFACT_API, ghHeaders);
-
-  const latest = data.artifacts.find(
-    (a: any) => a.workflow_run?.head_branch === "main" && !a.expired,
-  );
-  if (!latest)
-    throw new Error("No latest github-pages artifact found on main branch");
+  const latest = await fetchLatestArtifact();
 
   const artifactId = latest.id;
-  const sizeMB = (latest.size_in_bytes / 1024 / 1024).toFixed(2);
+  const sizeMB = (latest.sizeInBytes / 1024 / 1024).toFixed(2);
   const cachedZip = join(CACHE_DIR, `artifact-${artifactId}.zip`);
 
   mkdirSync(CACHE_DIR, { recursive: true });
@@ -213,16 +239,16 @@ async function extractPages(outputDir: string): Promise<{
     console.log(`  downloading artifact #${artifactId} (${sizeMB} MB)...`);
     const tmpZip = cachedZip + ".tmp";
     await downloadToFile(
-      latest.archive_download_url,
+      latest.archiveDownloadUrl,
       tmpZip,
-      latest.size_in_bytes,
+      latest.sizeInBytes,
       ghHeaders,
     );
     const actual = Bun.file(tmpZip).size;
-    if (actual !== latest.size_in_bytes) {
+    if (actual !== latest.sizeInBytes) {
       unlinkSync(tmpZip);
       throw new Error(
-        `Download incomplete: expected ${latest.size_in_bytes} bytes, got ${actual}`,
+        `Download incomplete: expected ${latest.sizeInBytes} bytes, got ${actual}`,
       );
     }
     renameSync(tmpZip, cachedZip);
@@ -269,7 +295,17 @@ async function extractPages(outputDir: string): Promise<{
 }
 
 async function main() {
+  const syncIdOnly = Bun.argv.includes("--sync-id-only");
+
   console.log("Starting formulae.brew.sh mirror sync...");
+
+  if (syncIdOnly) {
+    const latest = await fetchLatestArtifact();
+    writeFileSync(".latest.artifact", String(latest.id));
+    setOutput("artifact_id", String(latest.id));
+    console.log(`Done! artifact #${latest.id} recorded (sync-id-only).`);
+    return;
+  }
 
   rmSync(OUTPUT_DIR, { recursive: true, force: true });
   mkdirSync(OUTPUT_DIR, { recursive: true });
