@@ -29,6 +29,8 @@ jobs:
 
             - name: Fetch latest artifact ID
               id: sync
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: bun run src/sync.ts --sync-id-only
 
             - name: Commit & push
