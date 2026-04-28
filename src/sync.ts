@@ -35,8 +35,6 @@ const CACHE_DIR =
   );
 
 const OUTPUT_DIR = process.env.OUTPUT_DIR ?? join(cwd(), "dist");
-const MAX_ASSET_BYTES = 25 * 1024 * 1024;
-const R2_BUCKET = process.env.R2_BUCKET ?? "formulae-mirror-large";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const isRetriableStatus = (s: number) => s === 429 || s >= 500;
@@ -181,7 +179,6 @@ function cleanStaleCache(artifactId: number) {
 
 async function extractPages(outputDir: string): Promise<{
   filePaths: Set<string>;
-  largeFiles: Map<string, string>;
   artifactId: number;
 }> {
   const token = process.env.GITHUB_TOKEN;
@@ -194,7 +191,7 @@ async function extractPages(outputDir: string): Promise<{
     "User-Agent": "formulae-mirror",
   };
 
-  console.log("[1/3] Fetching artifact list from GitHub...");
+  console.log("[1/2] Fetching artifact list from GitHub...");
   const data = await fetchJson(ARTIFACT_API, ghHeaders);
 
   const latest = data.artifacts.find(
@@ -249,7 +246,6 @@ async function extractPages(outputDir: string): Promise<{
     const entries = await archive.files();
 
     const filePaths = new Set<string>();
-    const largeFiles = new Map<string, string>();
     const parseProgress = new Progress("extracting", entries.size, "count");
     let count = 0;
     for (const [path, file] of entries) {
@@ -258,50 +254,17 @@ async function extractPages(outputDir: string): Promise<{
         parseProgress.update(++count);
         continue;
       }
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      if (bytes.length > MAX_ASSET_BYTES) {
-        const r2Staging = join(CACHE_DIR, "r2-staging");
-        const r2Path = join(r2Staging, normalized);
-        mkdirSync(join(r2Path, ".."), { recursive: true });
-        writeFileSync(r2Path, bytes);
-        largeFiles.set(normalized, r2Path);
-        parseProgress.update(++count);
-        continue;
-      }
       const outPath = join(outputDir, normalized);
       mkdirSync(join(outPath, ".."), { recursive: true });
-      writeFileSync(outPath, bytes);
+      writeFileSync(outPath, new Uint8Array(await file.arrayBuffer()));
       filePaths.add(normalized);
       parseProgress.update(++count);
     }
 
-    console.log(
-      `  extracted ${filePaths.size} files to ${outputDir}, ${largeFiles.size} large files for R2`,
-    );
-    return { filePaths, largeFiles, artifactId };
+    console.log(`  extracted ${filePaths.size} files to ${outputDir}`);
+    return { filePaths, artifactId };
   } finally {
     rmSync(tmpDir, { recursive: true, force: true });
-  }
-}
-
-async function uploadToR2(
-  bucket: string,
-  key: string,
-  localPath: string,
-): Promise<void> {
-  for (let attempt = 1; attempt <= RETRIES; attempt++) {
-    try {
-      console.log(`  uploading ${bucket}/${key}`)
-      await $`wrangler r2 object put ${bucket}/${key} --file ${localPath} --remote`.quiet();
-      return;
-    } catch (e: any) {
-      if (attempt >= RETRIES) throw e;
-      const delay = retryDelay(attempt);
-      console.log(
-        `  R2 retry ${attempt}/${RETRIES} for ${key} (wait ${Math.round(delay)}ms)`,
-      );
-      await sleep(delay);
-    }
   }
 }
 
@@ -311,23 +274,13 @@ async function main() {
   rmSync(OUTPUT_DIR, { recursive: true, force: true });
   mkdirSync(OUTPUT_DIR, { recursive: true });
 
-  const { filePaths, largeFiles, artifactId } = await extractPages(OUTPUT_DIR);
-
-  if (largeFiles.size > 0) {
-    console.log(`[2/3] Uploading ${largeFiles.size} large files to R2...`);
-    for (const [key, localPath] of largeFiles) {
-      await uploadToR2(R2_BUCKET, key, localPath);
-    }
-    console.log("  R2 upload complete");
-    rmSync(join(CACHE_DIR, "r2-staging"), { recursive: true, force: true });
-  }
+  const { filePaths, artifactId } = await extractPages(OUTPUT_DIR);
 
   setOutput("artifact_id", String(artifactId));
-  setOutput("file_count", String(filePaths.size + largeFiles.size));
-  setOutput("large_file_count", String(largeFiles.size));
+  setOutput("file_count", String(filePaths.size));
 
   console.log(
-    `Done! ${filePaths.size} assets + ${largeFiles.size} R2 files (artifact #${artifactId}).`,
+    `Done! ${filePaths.size} files extracted (artifact #${artifactId}).`,
   );
 }
 
