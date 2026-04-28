@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "formulae-mirror",
+  "compatibility_date": "2026-04-28",
+  "main": "./src/worker.ts",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+  },
+  "r2_buckets": [
+    {
+      "binding": "LARGE_ASSETS",
+      "bucket_name": "formulae-mirror-large",
+    },
+  ],
+}
