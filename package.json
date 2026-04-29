@@ -1,16 +1,16 @@
 {
-  "name": "formulae-mirror",
-  "version": "1.0.0",
-  "private": true,
-  "module": "src/sync.ts",
-  "type": "module",
-  "scripts": {
-    "sync": "bun run src/sync.ts"
-  },
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+    "name": "formulae-mirror",
+    "version": "1.0.0",
+    "private": true,
+    "module": "src/extract.ts",
+    "type": "module",
+    "scripts": {
+        "extract": "bun run src/extract.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "latest"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    }
 }

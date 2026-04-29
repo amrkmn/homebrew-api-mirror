@@ -1,17 +1,26 @@
 # formulae-mirror
 
-Mirrors formulae.brew.sh to Render. Runs on a 30-minute schedule.
+Mirrors formulae.brew.sh to Render. Runs via `sync.sh` on a cron schedule.
 
-Homebrew publishes a `github-pages` artifact from `Homebrew/formulae.brew.sh`. This repo grabs the latest artifact, stashes its ID in `.latest.artifact`, and pushes the result. Render picks up the push and auto-deploys.
+Homebrew publishes a `github-pages` artifact from `Homebrew/formulae.brew.sh`. The `sync.sh` script checks for new artifacts, commits the ID, and pushes. Render picks up the push and auto-deploys.
 
 ## Setup
 
-No secrets needed. The workflow runs with the built-in `GITHUB_TOKEN`.
+Set up `gh auth login` or a `GITHUB_TOKEN` env var on your VPS, then run:
 
-For local runs, put a `GITHUB_TOKEN` in `.env`.
+```bash
+./sync.sh
+```
 
-## How it works
+### Crontab
 
-1. Fetch the latest `github-pages` artifact ID from `Homebrew/formulae.brew.sh`
-2. Write the ID to `.latest.artifact`
-3. Commit and push. Render deploys automatically.
+**Option A - token inline:**
+```cron
+*/20 * * * * GITHUB_TOKEN=your_token /path/to/formulae-mirror/sync.sh >> /var/log/formulae-sync.log 2>&1
+```
+
+**Option B - token in `.env` (recommended):**
+```cron
+*/20 * * * * /path/to/formulae-mirror/sync.sh >> /var/log/formulae-sync.log 2>&1
+```
+With `GITHUB_TOKEN=your_token` stored in the project's `.env` file — the script loads it automatically.

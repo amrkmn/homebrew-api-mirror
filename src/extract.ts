@@ -1,7 +1,6 @@
 import { $ } from "bun";
 
 import {
-    appendFileSync,
     createWriteStream,
     existsSync,
     mkdirSync,
@@ -40,10 +39,6 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const isRetriableStatus = (s: number) => s === 429 || s >= 500;
 const retryDelay = (attempt: number) =>
     BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 1000;
-
-const setOutput = (key: string, value: string) =>
-    process.env.GITHUB_OUTPUT &&
-    appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
 
 async function fetchJson(url: string, headers: HeadersMap): Promise<any> {
     for (let attempt = 1; attempt <= RETRIES; attempt++) {
@@ -217,7 +212,7 @@ async function extractPages(outputDir: string): Promise<{
     const token = process.env.GITHUB_TOKEN;
     if (!token)
         throw new Error(
-            "GITHUB_TOKEN is required (set in .env for local dev, auto-injected in GitHub Actions)",
+            "GITHUB_TOKEN is required (set in .env for local dev)",
         );
 
     const ghHeaders: HeadersMap = {
@@ -311,17 +306,7 @@ async function extractPages(outputDir: string): Promise<{
 }
 
 async function main() {
-    const syncIdOnly = Bun.argv.includes("--sync-id-only");
-
     console.log("Starting formulae.brew.sh mirror sync...");
-
-    if (syncIdOnly) {
-        const latest = await fetchLatestArtifact();
-        writeFileSync(".latest.artifact", String(latest.id));
-        setOutput("artifact_id", String(latest.id));
-        console.log(`Done! artifact #${latest.id} recorded (sync-id-only).`);
-        return;
-    }
 
     rmSync(OUTPUT_DIR, { recursive: true, force: true });
     mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -329,8 +314,6 @@ async function main() {
     const { filePaths, artifactId } = await extractPages(OUTPUT_DIR);
 
     writeFileSync(".latest.artifact", String(artifactId));
-
-    setOutput("artifact_id", String(artifactId));
 
     console.log(
         `Done! ${filePaths.size} files extracted (artifact #${artifactId}).`,
