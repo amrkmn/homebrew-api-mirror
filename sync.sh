@@ -78,6 +78,7 @@ if git diff --cached --quiet; then
 fi
 
 git pull --rebase --autostash
+git add "${ARTIFACT_FILE}"
 git commit -m "sync: artifact #${LATEST_ID}"
 git push
 
