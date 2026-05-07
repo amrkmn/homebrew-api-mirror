@@ -75,7 +75,7 @@ jobs:
       - name: Set tag expiration
         run: |
           EXPIRY=$(date -d '+14 days' +%s)
-          curl -sf -X PUT \
+          curl -v -X PUT \
             -H "Authorization: Bearer ${{ secrets.REGISTRY_PASSWORD }}" \
             -H "Content-Type: application/json" \
             "https://${{ env.REGISTRY }}/api/v1/repository/${{ env.IMAGE_NAME }}/tag/${{ steps.artifact.outputs.version }}" \
