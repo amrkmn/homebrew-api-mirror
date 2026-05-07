@@ -1,0 +1,87 @@
+resolver 1.1.1.1 8.8.8.8 valid=300s ipv6=off;
+
+#TRUSTED_PROXIES_BLOCK#
+
+proxy_cache_path /var/cache/nginx
+    levels=1:2
+    keys_zone=brew_cache:100m
+    max_size=10g
+    inactive=30m
+    use_temp_path=off
+    manager_files=1000
+    manager_sleep=50ms
+    manager_threshold=200ms;
+
+open_file_cache max=50000 inactive=30s;
+open_file_cache_valid 60s;
+open_file_cache_min_uses 2;
+open_file_cache_errors on;
+
+proxy_cache brew_cache;
+proxy_cache_key "$scheme$host$request_uri";
+
+proxy_cache_valid 200 301 302 10m;
+proxy_cache_valid 404 1m;
+proxy_cache_valid any 1m;
+
+proxy_cache_revalidate on;
+proxy_cache_background_update on;
+
+proxy_cache_use_stale error timeout updating
+                      http_500 http_502 http_503 http_504;
+
+proxy_cache_lock on;
+proxy_cache_lock_timeout 5s;
+
+proxy_ignore_headers Cache-Control Expires Set-Cookie;
+
+# Hide upstream CDN headers from GitHub Pages/Fastly
+proxy_hide_header age;
+proxy_hide_header x-cache;
+proxy_hide_header x-cache-hits;
+proxy_hide_header x-origin-cache;
+proxy_hide_header x-proxy-cache;
+proxy_hide_header x-served-by;
+proxy_hide_header x-fastly-request-id;
+proxy_hide_header x-timer;
+
+add_header X-Cache-Status $upstream_cache_status;
+
+proxy_buffering on;
+proxy_buffers 64 16k;
+proxy_buffer_size 32k;
+proxy_busy_buffers_size 256k;
+proxy_max_temp_file_size 0;
+
+proxy_force_ranges on;
+
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    client_max_body_size 10m;
+
+    # Gzip
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    gzip_min_length 256;
+    gzip_vary on;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~* \.(gz|json|tar|zip|bz2|xz)$ {
+        try_files $uri =404;
+        proxy_read_timeout 120s;
+    }
+
+    location = /health {
+        access_log off;
+        return 200 "ok\n";
+        add_header Content-Type text/plain;
+    }
+}

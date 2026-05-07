@@ -1,0 +1,19 @@
+services:
+  formulae-mirror:
+    image: quay.io/amrkmn/formulae-mirror:latest
+    environment:
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16}
+    ports:
+      - "${PORT:-8080}:80"
+    volumes:
+      - nginx-cache:/var/cache/nginx
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  nginx-cache:
