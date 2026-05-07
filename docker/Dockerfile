@@ -2,9 +2,6 @@
 
 FROM nginx:alpine
 
-ARG quay_expiration=14d
-LABEL quay.expires.after=${quay_expiration}
-
 RUN apk add --no-cache gettext
 
 COPY docker/nginx.conf.template /etc/nginx/templates/default.conf.template
