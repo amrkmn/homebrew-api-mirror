@@ -34,6 +34,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set artifact tag
+        id: artifact
+        run: echo "version=$(cat .latest.artifact)" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -54,7 +58,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=raw,value={{date 'YYYYMMDD-HHmmss'}}
+            type=raw,value=${{ steps.artifact.outputs.version }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
