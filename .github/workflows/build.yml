@@ -75,4 +75,5 @@ jobs:
       - name: Set tag expiration
         run: bun run quay-expire
         env:
-          QUAY_TOKEN: ${{ secrets.REGISTRY_PASSWORD }}
+          QUAY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          QUAY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}

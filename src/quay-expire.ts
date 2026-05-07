@@ -1,6 +1,6 @@
-import { $ } from "bun";
-
 const QUAY_URL = process.env.QUAY_URL ?? "https://quay.io";
+const QUAY_USERNAME = process.env.QUAY_USERNAME;
+const QUAY_PASSWORD = process.env.QUAY_PASSWORD;
 const QUAY_TOKEN = process.env.QUAY_TOKEN;
 const REPOSITORY = process.env.REPOSITORY ?? "amrkmn/formulae-mirror";
 const DEFAULT_EXPIRE = process.env.QUAY_DEFAULT_EXPIRE ?? "14d";
@@ -44,12 +44,44 @@ function matchRule(tag: string): ExpirationRule | null {
     return null;
 }
 
-async function request<T>(path: string, method: string, data?: any): Promise<T> {
-    if (!QUAY_TOKEN) throw new Error("QUAY_TOKEN is required");
+async function getOAuthToken(): Promise<string> {
+    if (QUAY_TOKEN) return QUAY_TOKEN;
+    if (!QUAY_USERNAME || !QUAY_PASSWORD) {
+        throw new Error(
+            "QUAY_TOKEN or QUAY_USERNAME+QUAY_PASSWORD is required",
+        );
+    }
 
+    const creds = Buffer.from(`${QUAY_USERNAME}:${QUAY_PASSWORD}`).toString(
+        "base64",
+    );
+    const res = await fetch(`${QUAY_URL}/oauth/access_token`, {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${creds}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: "grant_type=client_credentials",
+    });
+
+    if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`OAuth token exchange failed: ${res.status} ${body}`);
+    }
+
+    const data = (await res.json()) as { access_token: string };
+    return data.access_token;
+}
+
+async function request<T>(
+    path: string,
+    method: string,
+    token: string,
+    data?: any,
+): Promise<T> {
     const url = `${QUAY_URL}${path}`;
     const headers: Record<string, string> = {
-        Authorization: `Bearer ${QUAY_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         Accept: "application/json",
     };
 
@@ -72,15 +104,25 @@ async function request<T>(path: string, method: string, data?: any): Promise<T> 
     return res.json() as Promise<T>;
 }
 
-async function getTags(repo: string): Promise<Record<string, { expiration?: string }>> {
+async function getTags(
+    repo: string,
+    token: string,
+): Promise<Record<string, { expiration?: string }>> {
     const path = `/api/v1/repository/${repo}?includeTags=true`;
-    const response = await request<{ tags: Record<string, { expiration?: string }> }>(path, "GET");
+    const response = await request<{
+        tags: Record<string, { expiration?: string }>;
+    }>(path, "GET", token);
     return response.tags;
 }
 
-async function putExpiration(repo: string, tag: string, expiration: number): Promise<void> {
+async function putExpiration(
+    repo: string,
+    tag: string,
+    expiration: number,
+    token: string,
+): Promise<void> {
     const path = `/api/v1/repository/${repo}/tag/${tag}`;
-    await request(path, "PUT", { expiration });
+    await request(path, "PUT", token, { expiration });
 }
 
 async function main() {
@@ -89,7 +131,9 @@ async function main() {
     console.log(`Default expiration: ${DEFAULT_EXPIRE}`);
     console.log(`Dry run: ${DRY_RUN}`);
 
-    const tags = await getTags(REPOSITORY);
+    const token = await getOAuthToken();
+
+    const tags = await getTags(REPOSITORY, token);
     const tagEntries = Object.entries(tags);
 
     if (tagEntries.length === 0) {
@@ -101,7 +145,9 @@ async function main() {
 
     for (const [tag, values] of tagEntries) {
         if (values.expiration) {
-            console.log(`  ${tag}: already has expiration (${values.expiration})`);
+            console.log(
+                `  ${tag}: already has expiration (${values.expiration})`,
+            );
             continue;
         }
 
@@ -121,13 +167,17 @@ async function main() {
         const expiryTs = Math.floor(Date.now() / 1000) + expireSec;
 
         if (DRY_RUN) {
-            console.log(`  ${tag}: would set expiration to ${expiryDate} (rule: ${rule.name})`);
+            console.log(
+                `  ${tag}: would set expiration to ${expiryDate} (rule: ${rule.name})`,
+            );
             continue;
         }
 
         try {
-            await putExpiration(REPOSITORY, tag, expiryTs);
-            console.log(`  ${tag}: set expiration to ${expiryDate} (rule: ${rule.name})`);
+            await putExpiration(REPOSITORY, tag, expiryTs, token);
+            console.log(
+                `  ${tag}: set expiration to ${expiryDate} (rule: ${rule.name})`,
+            );
         } catch (e: any) {
             console.error(`  ${tag}: failed - ${e.message}`);
         }
