@@ -74,10 +74,9 @@ jobs:
 
       - name: Set tag expiration
         run: |
-          QUAY_TOKEN=$(curl -s -u "${{ env.REGISTRY_USERNAME }}:${{ secrets.REGISTRY_PASSWORD }}" \
-            -X POST "https://${{ env.REGISTRY }}/oauth/access_token" \
-            -d "grant_type=client_credentials" | jq -r '.access_token')
-          curl -s -X PUT \
-            -H "Authorization: Bearer ${QUAY_TOKEN}" \
-            "https://${{ env.REGISTRY }}/api/v1/repository/${{ env.IMAGE_NAME }}/tag/${{ steps.artifact.outputs.version }}/expiration" \
-            -d '{"expiration": "30d"}'
+          EXPIRY=$(date -d '+30 days' +%s)
+          curl -sf -X PUT \
+            -H "Authorization: Bearer ${{ secrets.REGISTRY_PASSWORD }}" \
+            -H "Content-Type: application/json" \
+            "https://${{ env.REGISTRY }}/api/v1/repository/${{ env.IMAGE_NAME }}/tag/${{ steps.artifact.outputs.version }}" \
+            -d "{\"expiration\": ${EXPIRY}}"
