@@ -5,7 +5,8 @@
     "module": "src/extract.ts",
     "type": "module",
     "scripts": {
-        "extract": "bun run src/extract.ts"
+        "extract": "bun run src/extract.ts",
+        "quay-expire": "bun run src/quay-expire.ts"
     },
     "devDependencies": {
         "@types/bun": "latest"
