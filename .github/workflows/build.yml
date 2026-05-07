@@ -74,7 +74,7 @@ jobs:
 
       - name: Set tag expiration
         run: |
-          EXPIRY=$(date -d '+30 days' +%s)
+          EXPIRY=$(date -d '+14 days' +%s)
           curl -sf -X PUT \
             -H "Authorization: Bearer ${{ secrets.REGISTRY_PASSWORD }}" \
             -H "Content-Type: application/json" \
