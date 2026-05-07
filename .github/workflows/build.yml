@@ -51,29 +51,27 @@ jobs:
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ steps.artifact.outputs.version }}
-
-      - name: Build and push
+      - name: Build and push (artifact tag - 14d expiry)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            quay_expiration=14d
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.artifact.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Set tag expiration
-        run: bun run quay-expire
-        env:
-          QUAY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-          QUAY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Build and push (latest tag - never expires)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            quay_expiration=never
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
