@@ -3,7 +3,7 @@
 FROM nginx:alpine
 
 ARG quay_expiration=14d
-LABEL quay.expires-after=${quay_expiration}
+LABEL quay.expires.after=${quay_expiration}
 
 RUN apk add --no-cache gettext
 
