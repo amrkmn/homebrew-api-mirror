@@ -30,7 +30,8 @@ cp "$TEMPLATE" "$OUTPUT"
 
 # Inject trusted proxies block
 if [ -n "$PROXIES_BLOCK" ]; then
-    sed -i "s|#TRUSTED_PROXIES_BLOCK#|${PROXIES_BLOCK}|" "$OUTPUT"
+    ESCAPED_BLOCK=$(printf '%s\n' "$PROXIES_BLOCK" | sed -e 's/[\/&|]/\\&/g' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/\\n/g')
+    sed -i "s|#TRUSTED_PROXIES_BLOCK#|${ESCAPED_BLOCK}|" "$OUTPUT"
 else
     sed -i "/#TRUSTED_PROXIES_BLOCK#/d" "$OUTPUT"
 fi
