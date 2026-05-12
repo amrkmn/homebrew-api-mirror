@@ -1,8 +1,8 @@
 # formulae-mirror
 
-Mirrors formulae.brew.sh to Render. Runs via `sync.sh` on a cron schedule.
+Mirrors formulae.brew.sh. Runs via `sync.sh` on a cron schedule.
 
-Homebrew publishes a `github-pages` artifact from `Homebrew/formulae.brew.sh`. The `sync.sh` script checks for new artifacts, commits the ID, and pushes. Render picks up the push and auto-deploys.
+Homebrew publishes a `github-pages` artifact from `Homebrew/formulae.brew.sh`. The `sync.sh` script checks for new artifacts, commits the ID, and pushes.
 
 ## Setup
 
