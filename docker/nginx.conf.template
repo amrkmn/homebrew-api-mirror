@@ -71,7 +71,7 @@ server {
     gzip_vary on;
 
     location / {
-        try_files $uri $uri/ =404;
+        try_files $uri $uri.html $uri/ =404;
     }
 
     location ~* \.(gz|json|tar|zip|bz2|xz)$ {
